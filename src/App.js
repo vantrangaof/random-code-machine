@@ -43,7 +43,7 @@ setAccentColor(COLORS_ARRAY[randomInteger])
     <div className="App">
       <header className="App-header" style={{backgroundColor:accentColor}}>
         <div id="quote-box" style={{color:accentColor}}>
-        {/* <h1>Random Number: {randomNumber}</h1> */}
+        <h1>Click "New Quote" To See More Quotes </h1>
         <h2 id = "text">
         "{quote}"
         </h2>
