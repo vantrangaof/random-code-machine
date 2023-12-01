@@ -1,0 +1,543 @@
+{% if refund_line_items.size == item_count %}
+  {% capture email_title %}您的訂單已退款{% endcapture %}
+{% elsif refund_line_items.size == 0 %}
+  {% capture email_title %}您已收到退款{% endcapture %}
+{% else %}
+  {% capture email_title %}您訂單中的部分商品已退款{% endcapture %}
+{% endif %}
+{% capture email_body %}總退款金額：<strong>{{ amount | money_with_currency }}</strong>{% endcapture %}
+
+<!DOCTYPE html>
+<html lang="zh-TW">
+  <head>
+  <title>{{ email_title }}</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width">
+  <link rel="stylesheet" type="text/css" href="/assets/notifications/styles.css">
+  <style>
+    .button__cell { background: {{ shop.email_accent_color }}; }
+    a, a:hover, a:active, a:visited { color: {{ shop.email_accent_color }}; }
+  </style>
+</head>
+
+  <body>
+    <table class="body">
+      <tr>
+        <td>
+          <table class="header row">
+  <tr>
+    <td class="header__cell">
+      <center>
+
+        <table class="container">
+          <tr>
+            <td>
+
+              <table class="row">
+                <tr>
+                  <td class="shop-name__cell">
+                    {%- if shop.email_logo_url %}
+                      <img src="{{shop.email_logo_url}}" alt="{{ shop.name }}" width="{{ shop.email_logo_width }}">
+                    {%- else %}
+                      <h1 class="shop-name__text">
+                        <a href="{{shop.url}}">{{ shop.name }}</a>
+                      </h1>
+                    {%- endif %}
+                  </td>
+
+                    <td>
+                      <tr>
+                        <td class="order-number__cell">
+                          <span class="order-number__text">
+                            訂單 {{ order_name }}
+                          </span>
+                        </td>
+                      </tr>
+                      {%- if po_number %}
+                          <tr>
+                            <td class="po-number__cell">
+                              <span class="po-number__text">
+                                採購單編號 #{{ po_number }}
+                              </span>
+                            </td>
+                          </tr>
+                      {%- endif %}
+                    </td>
+                </tr>
+              </table>
+
+            </td>
+          </tr>
+        </table>
+
+      </center>
+    </td>
+  </tr>
+</table>
+
+          <table class="row content">
+  <tr>
+    <td class="content__cell">
+      <center>
+        <table class="container">
+          <tr>
+            <td>
+
+            <h2>{{ email_title }}</h2>
+            <p>{{ email_body }}</p>
+
+            </td>
+          </tr>
+        </table>
+      </center>
+    </td>
+  </tr>
+</table>
+
+          <table class="row section">
+  <tr>
+    <td class="section__cell">
+      <center>
+        <table class="container">
+          <tr>
+            <td>
+              <h3>訂單摘要</h3>
+            </td>
+          </tr>
+        </table>
+        <table class="container">
+          <tr>
+            <td>
+
+
+<table class="row">
+  {% for line in subtotal_line_items %}
+  <tr class="order-list__item">
+    <td class="order-list__item__cell">
+      <table>
+        <td>
+          {% if line.image %}
+            <img src="{{ line | img_url: 'compact_cropped' }}" align="left" width="60" height="60" class="order-list__product-image"/>
+          {% endif %}
+        </td>
+        <td class="order-list__product-description-cell">
+          {% if line.product.title %}
+            {% assign line_title = line.product.title %}
+          {% else %}
+            {% assign line_title = line.title %}
+          {% endif %}
+
+          {% if line.quantity < line.quantity %}
+            {% capture line_display %} {{ line.quantity }} of {{ line.quantity }} {% endcapture %}
+          {% else %}
+            {% assign line_display = line.quantity  %}
+          {% endif %}
+
+          <span class="order-list__item-title">{{ line_title }}&nbsp;&times;&nbsp;{{ line_display }}</span>
+
+          {% if line.variant.title != 'Default Title' %}
+            <span class="order-list__item-variant">{{ line.variant.title }}</span><br/>
+          {% endif %}
+
+          {% for group in line.groups %}
+            <span class="order-list__item-variant">來自：{{ group.display_title }}</span><br/>
+          {% endfor %}
+
+            {% if line.gift_card and line.properties["__shopify_send_gift_card_to_recipient"] %}
+              {% for property in line.properties %}
+  {% assign property_first_char = property.first | slice: 0 %}
+  {% if property.last != blank and property_first_char != '_' %}
+    <div class="order-list__item-property">
+      <dt>{{ property.first }}:</dt>
+      <dd>
+      {% if property.last contains '/uploads/' %}
+        <a href="{{ property.last }}" class="link" target="_blank">
+        {{ property.last | split: '/' | last }}
+        </a>
+      {% else %}
+        {{ property.last }}
+      {% endif %}
+      </dd>
+    </div>
+  {% endif %}
+{% endfor %}
+
+            {% endif %}
+
+          {% if line.selling_plan_allocation %}
+            <span class="order-list__item-variant">{{ line.selling_plan_allocation.selling_plan.name }}</span><br/>
+          {% endif %}
+
+          {% if line.refunded_quantity > 0 %}
+            <span class="order-list__item-refunded">已退款</span>
+          {% endif %}
+
+          {% if line.discount_allocations %}
+            {% for discount_allocation in line.discount_allocations %}
+              {% if discount_allocation.discount_application.target_selection != 'all' %}
+              <p>
+                <span class="order-list__item-discount-allocation">
+                  <img src="{{ 'notifications/discounttag.png' | shopify_asset_url }}" width="18" height="18" class="discount-tag-icon" />
+                  <span>
+                    {{ discount_allocation.discount_application.title | upcase }}
+                    (-{{ discount_allocation.amount | money }})
+                  </span>
+                </span>
+              </p>
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+        </td>
+          <td class="order-list__price-cell">
+            {% if line.original_line_price != line.final_line_price %}
+              <del class="order-list__item-original-price">{{ line.original_line_price | money }}</del>
+            {% endif %}
+            <p class="order-list__item-price">
+              {% if line.final_line_price > 0 %}
+                {{ line.final_line_price | money }}
+              {% else %}
+                免費
+              {% endif %}
+            </p>
+          </td>
+      </table>
+    </td>
+  </tr>{% endfor %}
+</table>
+
+            <table class="row subtotal-lines">
+  <tr>
+    <td class="subtotal-spacer"></td>
+    <td>
+      <table class="row subtotal-table">
+
+
+{% assign order_discount_count = 0 %}
+{% assign total_order_discount_amount = 0 %}
+{% assign has_shipping_discount = false %}
+
+{% for discount_application in discount_applications %}
+  {% if discount_application.target_selection == 'all' and discount_application.target_type == 'line_item' %}
+    {% assign order_discount_count = order_discount_count | plus: 1 %}
+    {% assign total_order_discount_amount = total_order_discount_amount | plus: discount_application.total_allocated_amount  %}
+  {% endif %}
+  {% if discount_application.target_type == 'shipping_line' %}
+    {% assign has_shipping_discount = true %}
+    {% assign shipping_discount = discount_application.title %}
+    {% assign shipping_amount = discount_application.total_allocated_amount %}
+  {% endif %}
+{% endfor %}
+
+
+
+<tr class="subtotal-line">
+  <td class="subtotal-line__title">
+    <p>
+      <span>小計</span>
+    </p>
+  </td>
+  <td class="subtotal-line__value">
+      <strong>{{ subtotal_price | plus: total_order_discount_amount | money }}</strong>
+  </td>
+</tr>
+
+
+
+{% if order_discount_count > 0 %}
+  {% if order_discount_count == 1 %}
+
+<tr class="subtotal-line">
+  <td class="subtotal-line__title">
+    <p>
+      <span>訂單折扣</span>
+    </p>
+  </td>
+  <td class="subtotal-line__value">
+      <strong>-{{ total_order_discount_amount | money }}</strong>
+  </td>
+</tr>
+
+  {% endif %}
+  {% if order_discount_count > 1 %}
+
+<tr class="subtotal-line">
+  <td class="subtotal-line__title">
+    <p>
+      <span>訂單折扣</span>
+    </p>
+  </td>
+  <td class="subtotal-line__value">
+      <strong>-{{ total_order_discount_amount | money }}</strong>
+  </td>
+</tr>
+
+  {% endif %}
+  {% for discount_application in discount_applications %}
+    {% if discount_application.target_selection == 'all' and discount_application.target_type != 'shipping_line' %}
+      <tr class="subtotal-line">
+  <td class="subtotal-line__title">
+    <p>
+      <span class="subtotal-line__discount">
+        <img src="{{ 'notifications/discounttag.png' | shopify_asset_url }}" width="18" height="18" class="discount-tag-icon" />
+        <span class="subtotal-line__discount-title">{{ discount_application.title }} (-{{ discount_application.total_allocated_amount | money }})</span>
+      </span>
+    </p>
+  </td>
+</tr>
+
+    {% endif %}
+  {% endfor %}
+{% endif %}
+
+
+        {% if delivery_method == 'pick-up' %}
+
+<tr class="subtotal-line">
+  <td class="subtotal-line__title">
+    <p>
+      <span>取貨</span>
+    </p>
+  </td>
+  <td class="subtotal-line__value">
+      <strong>{{ shipping_price | money }}</strong>
+  </td>
+</tr>
+
+        {% else %}
+          {% if has_shipping_discount %}
+
+<tr class="subtotal-line">
+  <td class="subtotal-line__title">
+    <p>
+      <span>運送</span>
+    </p>
+  </td>
+  <td class="subtotal-line__value">
+      <strong>Free</strong>
+  </td>
+</tr>
+
+  <tr class="subtotal-line">
+  <td class="subtotal-line__title">
+    <p>
+      <span class="subtotal-line__discount">
+        <img src="{{ 'notifications/discounttag.png' | shopify_asset_url }}" width="18" height="18" class="discount-tag-icon" />
+        <span class="subtotal-line__discount-title">{{ shipping_discount }} (-{{ shipping_amount | money }})</span>
+      </span>
+    </p>
+  </td>
+</tr>
+
+{% else %}
+
+<tr class="subtotal-line">
+  <td class="subtotal-line__title">
+    <p>
+      <span>運送</span>
+    </p>
+  </td>
+  <td class="subtotal-line__value">
+      <strong>{{ shipping_price | money }}</strong>
+  </td>
+</tr>
+
+{% endif %}
+
+        {% endif %}
+
+        {% if total_duties %}
+
+<tr class="subtotal-line">
+  <td class="subtotal-line__title">
+    <p>
+      <span>關稅</span>
+    </p>
+  </td>
+  <td class="subtotal-line__value">
+      <strong>{{ total_duties | money }}</strong>
+  </td>
+</tr>
+
+        {% endif %}
+
+
+<tr class="subtotal-line">
+  <td class="subtotal-line__title">
+    <p>
+      <span>稅金</span>
+    </p>
+  </td>
+  <td class="subtotal-line__value">
+      <strong>{{ tax_price | money }}</strong>
+  </td>
+</tr>
+
+
+        {% if total_tip and total_tip > 0 %}
+
+<tr class="subtotal-line">
+  <td class="subtotal-line__title">
+    <p>
+      <span>Tip</span>
+    </p>
+  </td>
+  <td class="subtotal-line__value">
+      <strong>{{ total_tip | money }}</strong>
+  </td>
+</tr>
+
+        {% endif %}
+      </table>
+      {% assign transaction_size = 0 %}
+      {% assign transaction_amount = 0 %}
+      {% for transaction in transactions %}
+        {% if transaction.status == "success" %}
+        {% unless transaction.kind == "authorization" or transaction.kind == "void" %}
+          {% assign transaction_size = transaction_size | plus: 1 %}
+          {% assign transaction_amount = transaction_amount | plus: transaction.amount %}
+        {% endunless %}
+        {% endif %}
+      {% endfor %}
+      <table class="row subtotal-table subtotal-table--total">
+      {% if payment_terms and payment_terms.automatic_capture_at_fulfillment == false or b2b?%}
+        {% assign due_at_date = payment_terms.next_payment.due_at | date: "%b %d, %Y" %}
+
+<tr class="subtotal-line">
+  <td class="subtotal-line__title">
+    <p>
+      <span>本日總付款金額</span>
+    </p>
+  </td>
+  <td class="subtotal-line__value">
+      <strong>{{ transaction_amount | money_with_currency }}</strong>
+  </td>
+</tr>
+
+        <div class="payment-terms">
+
+<tr class="subtotal-line">
+  <td class="subtotal-line__title">
+    <p>
+      <span>{{ due_at_date }}應收總金額</span>
+    </p>
+  </td>
+  <td class="subtotal-line__value">
+      <strong>{{ payment_terms.next_payment.amount_due | money_with_currency }}</strong>
+  </td>
+</tr>
+
+        </div>
+      {% else %}
+
+<tr class="subtotal-line">
+  <td class="subtotal-line__title">
+    <p>
+      <span>總計</span>
+    </p>
+  </td>
+  <td class="subtotal-line__value">
+      <strong>{{ total_price | money_with_currency }}</strong>
+  </td>
+</tr>
+
+      {% endif %}
+      </table>
+
+      {% if total_discounts > 0 %}
+        <p class="total-discount">
+          您節省了 <span class="total-discount--amount">{{ total_discounts | money }}</span>
+        </p>
+      {% endif %}
+
+      {% unless payment_terms %}
+      {% if transaction_size > 1 or transaction_amount < total_price %}
+        <table class="row subtotal-table">
+          <tr><td colspan="2" class="subtotal-table__line"></td></tr>
+          <tr><td colspan="2" class="subtotal-table__small-space"></td></tr>
+
+          {% for transaction in transactions %}
+            {% if transaction.status == "success" and transaction.kind == "capture" or transaction.kind == "sale" %}
+              {% if transaction.payment_details.credit_card_company %}
+                {% capture transaction_name %}{{ transaction.payment_details.credit_card_company }} (末四碼：{{ transaction.payment_details.credit_card_last_four_digits }}){% endcapture %}
+              {% else %}
+                {% capture transaction_name %}{{ transaction.gateway_display_name }}{% endcapture %}
+              {% endif %}
+
+
+<tr class="subtotal-line">
+  <td class="subtotal-line__title">
+    <p>
+      <span>{{transaction_name}}</span>
+    </p>
+  </td>
+  <td class="subtotal-line__value">
+      <strong>{{ transaction.amount | money }}</strong>
+  </td>
+</tr>
+
+            {% endif %}
+            {% if transaction.kind == 'refund' %}
+              {% if transaction.payment_details.credit_card_company %}
+                {% assign refund_method_title = transaction.payment_details.credit_card_company %}
+              {% else %}
+                {% assign refund_method_title = transaction.gateway %}
+              {% endif %}
+
+
+<tr class="subtotal-line">
+  <td class="subtotal-line__title">
+    <p>
+      <span>退款</span>
+        <br>
+        <small>{{ refund_method_title | capitalize }}</small>
+    </p>
+  </td>
+  <td class="subtotal-line__value">
+      <strong>- {{ transaction.amount | money }}</strong>
+  </td>
+</tr>
+
+            {% endif %}
+          {% endfor %}
+        </table>
+      {% endif %}
+
+
+      {% endunless %}
+    </td>
+  </tr>
+</table>
+
+
+            </td>
+          </tr>
+        </table>
+      </center>
+    </td>
+  </tr>
+</table>
+
+          <table class="row footer">
+  <tr>
+    <td class="footer__cell">
+      <center>
+        <table class="container">
+          <tr>
+            <td>
+
+              <p class="disclaimer__subtext">如有任何疑問，請回覆本電子郵件或透過 <a href="mailto:{{ shop.email }}">{{ shop.email }}</a> 聯絡我們</p>
+            </td>
+          </tr>
+        </table>
+      </center>
+    </td>
+  </tr>
+</table>
+
+<img src="{{ 'notifications/spacer.png' | shopify_asset_url }}" class="spacer" height="1" />
+
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
